@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { Alert, Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import * as MediaLibrary from 'expo-media-library/legacy';
+import React, { useEffect, useRef, useState } from 'react';
+import { Alert, Image, PanResponder, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Sharing from 'expo-sharing';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../types';
@@ -9,32 +9,39 @@ import StarRating from '../components/StarRating';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PhotoDetail'>;
 
+const SWIPE_THRESHOLD = 60;
+
 export default function PhotoDetailScreen({ route, navigation }: Props) {
   const { assetIds, index } = route.params;
   const { assetsById, getMeta, rate, rename } = usePhotoLibrary();
+  const insets = useSafeAreaInsets();
   const assetId = assetIds[index];
   const asset = assetsById.get(assetId);
   const meta = getMeta(assetId);
 
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState(meta.customName ?? '');
-  const [shareUri, setShareUri] = useState<string | null>(null);
 
   useEffect(() => {
     setNameDraft(getMeta(assetId).customName ?? '');
     setEditingName(false);
-    setShareUri(null);
   }, [assetId]);
 
-  useEffect(() => {
-    let cancelled = false;
-    MediaLibrary.getAssetInfoAsync(assetId).then((info) => {
-      if (!cancelled) setShareUri(info.localUri ?? info.uri);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [assetId]);
+  const goTo = (newIndex: number) => {
+    if (newIndex < 0 || newIndex >= assetIds.length) return;
+    navigation.setParams({ index: newIndex });
+  };
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, gesture) =>
+        Math.abs(gesture.dx) > 12 && Math.abs(gesture.dx) > Math.abs(gesture.dy),
+      onPanResponderRelease: (_, gesture) => {
+        if (gesture.dx <= -SWIPE_THRESHOLD) goTo(index + 1);
+        else if (gesture.dx >= SWIPE_THRESHOLD) goTo(index - 1);
+      },
+    })
+  ).current;
 
   if (!asset) {
     return (
@@ -44,29 +51,29 @@ export default function PhotoDetailScreen({ route, navigation }: Props) {
     );
   }
 
-  const goTo = (newIndex: number) => {
-    if (newIndex < 0 || newIndex >= assetIds.length) return;
-    navigation.setParams({ index: newIndex });
-  };
-
   const saveName = async () => {
     await rename(assetId, nameDraft.trim());
     setEditingName(false);
   };
 
   const handleShare = async () => {
-    if (!shareUri) return;
-    const available = await Sharing.isAvailableAsync();
-    if (!available) {
-      Alert.alert('No disponible', 'Compartir no está disponible en este dispositivo.');
-      return;
+    try {
+      const available = await Sharing.isAvailableAsync();
+      if (!available) {
+        Alert.alert('No disponible', 'Compartir no está disponible en este dispositivo.');
+        return;
+      }
+      await Sharing.shareAsync(asset.uri);
+    } catch (err: any) {
+      Alert.alert('No se pudo compartir', err?.message ?? String(err));
     }
-    await Sharing.shareAsync(shareUri);
   };
 
   return (
     <View style={styles.container}>
-      <Image source={{ uri: shareUri ?? asset.uri }} style={styles.image} resizeMode="contain" />
+      <View style={styles.imageWrap} {...panResponder.panHandlers}>
+        <Image source={{ uri: asset.uri }} style={styles.image} resizeMode="contain" />
+      </View>
 
       <View style={styles.nameRow}>
         {editingName ? (
@@ -94,23 +101,9 @@ export default function PhotoDetailScreen({ route, navigation }: Props) {
         <StarRating rating={meta.rating} onRate={(r) => rate(assetId, r)} />
       </View>
 
-      <View style={styles.actionsRow}>
-        <TouchableOpacity style={styles.navButton} onPress={() => goTo(index - 1)} disabled={index === 0}>
-          <Text style={[styles.navButtonText, index === 0 && styles.disabled]}>‹ Anterior</Text>
-        </TouchableOpacity>
-
+      <View style={[styles.actionsRow, { paddingBottom: 16 + insets.bottom }]}>
         <TouchableOpacity style={styles.shareButton} onPress={handleShare}>
           <Text style={styles.shareButtonText}>Compartir</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navButton}
-          onPress={() => goTo(index + 1)}
-          disabled={index === assetIds.length - 1}
-        >
-          <Text style={[styles.navButtonText, index === assetIds.length - 1 && styles.disabled]}>
-            Siguiente ›
-          </Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -120,6 +113,7 @@ export default function PhotoDetailScreen({ route, navigation }: Props) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0F1729' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  imageWrap: { flex: 1 },
   image: { flex: 1, backgroundColor: '#000' },
   nameRow: { paddingHorizontal: 16, paddingTop: 12 },
   nameDisplay: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -135,16 +129,18 @@ const styles = StyleSheet.create({
   },
   starsWrap: { alignItems: 'center', paddingVertical: 14 },
   actionsRow: {
-    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingTop: 4,
   },
-  navButton: { paddingVertical: 10, paddingHorizontal: 8 },
-  navButtonText: { color: '#F5C518', fontSize: 15, fontWeight: '600' },
-  disabled: { color: '#3A4A6B' },
-  shareButton: { backgroundColor: '#F5C518', borderRadius: 10, paddingHorizontal: 20, paddingVertical: 12 },
+  shareButton: {
+    backgroundColor: '#F5C518',
+    borderRadius: 10,
+    paddingHorizontal: 32,
+    paddingVertical: 12,
+    alignSelf: 'stretch',
+    alignItems: 'center',
+  },
   shareButtonText: { color: '#0F1729', fontWeight: '700' },
   emptyText: { color: '#8CA0C6' },
 });

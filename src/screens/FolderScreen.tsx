@@ -26,12 +26,16 @@ export default function FolderScreen({ route, navigation }: Props) {
         keyExtractor={(item) => item.id}
         numColumns={NUM_COLUMNS}
         contentContainerStyle={styles.grid}
+        initialNumToRender={21}
+        maxToRenderPerBatch={21}
+        windowSize={5}
+        removeClippedSubviews
         renderItem={({ item, index }) => (
           <TouchableOpacity
             style={styles.thumbWrap}
             onPress={() => navigation.navigate('PhotoDetail', { assetIds, index })}
           >
-            <Image source={{ uri: item.uri }} style={styles.thumb} />
+            <Image source={{ uri: item.uri }} style={styles.thumb} resizeMethod="resize" resizeMode="cover" />
           </TouchableOpacity>
         )}
         ListEmptyComponent={<Text style={styles.emptyText}>No hay fotos en esta carpeta.</Text>}

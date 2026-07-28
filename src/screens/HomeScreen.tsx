@@ -28,13 +28,15 @@ export default function HomeScreen({ navigation }: Props) {
   const { assets, getMeta, loading, permissionGranted, refresh } = usePhotoLibrary();
   const [query, setQuery] = useState('');
 
-  const countsByRating = useMemo(() => {
-    const counts = new Map<number, number>();
+  const assetIdsByRating = useMemo(() => {
+    const groups = new Map<number, string[]>();
     for (const asset of assets) {
       const rating = getMeta(asset.id).rating;
-      counts.set(rating, (counts.get(rating) ?? 0) + 1);
+      const list = groups.get(rating);
+      if (list) list.push(asset.id);
+      else groups.set(rating, [asset.id]);
     }
-    return counts;
+    return groups;
   }, [assets, getMeta]);
 
   const searchResults = useMemo(() => {
@@ -105,20 +107,20 @@ export default function HomeScreen({ navigation }: Props) {
           contentContainerStyle={styles.listContent}
           refreshControl={<RefreshControl refreshing={loading} onRefresh={refresh} tintColor="#F5C518" />}
           renderItem={({ item }) => {
-            const folderAssets = assets.filter((a) => getMeta(a.id).rating === item.rating);
+            const folderAssetIds = assetIdsByRating.get(item.rating) ?? [];
             return (
               <TouchableOpacity
                 style={styles.folder}
                 onPress={() =>
                   navigation.navigate('Folder', {
-                    assetIds: folderAssets.map((a) => a.id),
+                    assetIds: folderAssetIds,
                     title: item.label,
                   })
                 }
               >
                 <Text style={styles.folderIcon}>{item.icon}</Text>
                 <Text style={styles.folderLabel}>{item.label}</Text>
-                <Text style={styles.folderCount}>{countsByRating.get(item.rating) ?? 0} fotos</Text>
+                <Text style={styles.folderCount}>{folderAssetIds.length} fotos</Text>
               </TouchableOpacity>
             );
           }}
