@@ -32,13 +32,18 @@ export default function PhotoDetailScreen({ route, navigation }: Props) {
     navigation.setParams({ index: newIndex });
   };
 
+  const indexRef = useRef(index);
+  useEffect(() => {
+    indexRef.current = index;
+  }, [index]);
+
   const panResponder = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (_, gesture) =>
         Math.abs(gesture.dx) > 12 && Math.abs(gesture.dx) > Math.abs(gesture.dy),
       onPanResponderRelease: (_, gesture) => {
-        if (gesture.dx <= -SWIPE_THRESHOLD) goTo(index + 1);
-        else if (gesture.dx >= SWIPE_THRESHOLD) goTo(index - 1);
+        if (gesture.dx <= -SWIPE_THRESHOLD) goTo(indexRef.current + 1);
+        else if (gesture.dx >= SWIPE_THRESHOLD) goTo(indexRef.current - 1);
       },
     })
   ).current;
