@@ -11,15 +11,25 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "backgroundColor": "#12213D",
+        "foregroundImage": "./assets/android-icon-foreground.png"
       },
       "predictiveBackGestureEnabled": false
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "expo-sqlite",
+      "expo-sharing",
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Selecta necesita acceder a tus fotos para mostrarlas y organizarlas.",
+          "savePhotosPermission": "Selecta necesita acceder a tus fotos para mostrarlas y organizarlas.",
+          "isAccessMediaLocationEnabled": false
+        }
+      ]
+    ]
   }
 }
