@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Alert, Image, PanResponder, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library/legacy';
 import * as Sharing from 'expo-sharing';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -69,8 +70,13 @@ export default function PhotoDetailScreen({ route, navigation }: Props) {
         Alert.alert('No disponible', 'Compartir no está disponible en este dispositivo.');
         return;
       }
-      const shareUri =
-        Platform.OS === 'android' ? await MediaLibrary.getAssetContentUriAsync(asset.id) : asset.uri;
+      let shareUri = asset.uri;
+      if (Platform.OS === 'android') {
+        const contentUri = await MediaLibrary.getAssetContentUriAsync(asset.id);
+        const dest = `${FileSystem.cacheDirectory}${asset.filename}`;
+        await FileSystem.copyAsync({ from: contentUri, to: dest });
+        shareUri = dest;
+      }
       await Sharing.shareAsync(shareUri);
     } catch (err: any) {
       Alert.alert('No se pudo compartir', err?.message ?? String(err));
