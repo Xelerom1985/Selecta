@@ -72,6 +72,7 @@ export default function HomeScreen({ navigation }: Props) {
 
       {query.trim().length > 0 ? (
         <FlatList
+          key="search"
           data={searchResults}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
@@ -101,6 +102,7 @@ export default function HomeScreen({ navigation }: Props) {
         </View>
       ) : (
         <FlatList
+          key="folders"
           data={FOLDERS}
           keyExtractor={(item) => String(item.rating)}
           numColumns={2}
