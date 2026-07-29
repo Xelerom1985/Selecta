@@ -7,4 +7,5 @@ export type RootStackParamList = {
 export type PhotoMeta = {
   rating: number;
   customName: string | null;
+  pendingDelete: boolean;
 };

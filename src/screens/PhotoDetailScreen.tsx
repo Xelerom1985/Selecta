@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Image, PanResponder, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -15,7 +15,8 @@ const SWIPE_THRESHOLD = 60;
 
 export default function PhotoDetailScreen({ route, navigation }: Props) {
   const { assetIds, index } = route.params;
-  const { assetsById, getMeta, rate, rename } = usePhotoLibrary();
+  const { assetsById, getMeta, rate, rename, markForDelete, pendingDeleteCount, confirmDeletions } =
+    usePhotoLibrary();
   const insets = useSafeAreaInsets();
   const assetId = assetIds[index];
   const asset = assetsById.get(assetId);
@@ -50,6 +51,45 @@ export default function PhotoDetailScreen({ route, navigation }: Props) {
     })
   ).current;
 
+  const handleFinish = useCallback(() => {
+    if (pendingDeleteCount === 0) {
+      Alert.alert('Nada para eliminar', 'Todavía no marcaste ninguna foto con la cruz roja.');
+      return;
+    }
+    Alert.alert(
+      'Enviar a la papelera',
+      `Vas a enviar ${pendingDeleteCount} foto${pendingDeleteCount === 1 ? '' : 's'} a la papelera de tu galería. ¿Confirmás?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Enviar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const count = await confirmDeletions();
+              Alert.alert('Listo', `${count} foto${count === 1 ? '' : 's'} enviada${count === 1 ? '' : 's'} a la papelera.`);
+              navigation.navigate('Home');
+            } catch (err: any) {
+              Alert.alert('No se pudo completar', err?.message ?? String(err));
+            }
+          },
+        },
+      ]
+    );
+  }, [pendingDeleteCount, confirmDeletions, navigation]);
+
+  useEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <TouchableOpacity onPress={handleFinish} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <Text style={styles.finishText}>
+            Terminar por ahora{pendingDeleteCount > 0 ? ` (${pendingDeleteCount})` : ''}
+          </Text>
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation, handleFinish, pendingDeleteCount]);
+
   if (!asset) {
     return (
       <View style={styles.center}>
@@ -83,11 +123,29 @@ export default function PhotoDetailScreen({ route, navigation }: Props) {
     }
   };
 
+  const decide = async (pending: boolean) => {
+    await markForDelete(assetId, pending);
+    goTo(index + 1);
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.imageWrap} {...panResponder.panHandlers}>
         <Image source={{ uri: asset.uri }} style={styles.image} resizeMode="contain" />
       </View>
+
+      <View style={styles.decisionRow}>
+        <TouchableOpacity
+          style={[styles.decisionButton, meta.pendingDelete && styles.decisionButtonActiveDelete]}
+          onPress={() => decide(true)}
+        >
+          <Text style={styles.decisionIcon}>❌</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.decisionButton} onPress={() => decide(false)}>
+          <Text style={styles.decisionIcon}>💚</Text>
+        </TouchableOpacity>
+      </View>
+      {meta.pendingDelete && <Text style={styles.pendingDeleteText}>Marcada para eliminar</Text>}
 
       <View style={styles.nameRow}>
         {editingName ? (
@@ -129,6 +187,27 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   imageWrap: { flex: 1 },
   image: { flex: 1, backgroundColor: '#000' },
+  finishText: { color: '#F5C518', fontWeight: '600', fontSize: 13 },
+  decisionRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 28,
+    paddingTop: 14,
+  },
+  decisionButton: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#1B2A47',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  decisionButtonActiveDelete: { borderColor: '#E5484D' },
+  decisionIcon: { fontSize: 26 },
+  pendingDeleteText: { color: '#E5484D', textAlign: 'center', fontSize: 12, marginTop: 6 },
   nameRow: { paddingHorizontal: 16, paddingTop: 12 },
   nameDisplay: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   nameText: { color: 'white', fontSize: 16, flex: 1 },
