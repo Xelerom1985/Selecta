@@ -4,7 +4,6 @@ import { ensurePermission, getAllPhotoAssets } from './mediaLibrary';
 import {
   deleteMetaRows,
   getAllMeta,
-  getPendingDeleteAssetIds,
   initDatabase,
   setCustomName,
   setPendingDelete,
@@ -24,8 +23,8 @@ type PhotoLibraryContextValue = {
   rate: (assetId: string, rating: number) => Promise<void>;
   rename: (assetId: string, name: string) => Promise<void>;
   markForDelete: (assetId: string, pendingDelete: boolean) => Promise<void>;
-  pendingDeleteCount: number;
-  confirmDeletions: () => Promise<number>;
+  pendingDeleteAssets: MediaLibrary.Asset[];
+  confirmDeletions: (assetIds: string[]) => Promise<number>;
 };
 
 const PhotoLibraryContext = createContext<PhotoLibraryContextValue | null>(null);
@@ -90,23 +89,22 @@ export function PhotoLibraryProvider({ children }: { children: React.ReactNode }
     });
   }, []);
 
-  const pendingDeleteCount = useMemo(
-    () => Array.from(metaMap.values()).filter((m) => m.pendingDelete).length,
-    [metaMap]
+  const pendingDeleteAssets = useMemo(
+    () => assets.filter((a) => (metaMap.get(a.id) ?? EMPTY_META).pendingDelete),
+    [assets, metaMap]
   );
 
-  const confirmDeletions = useCallback(async () => {
-    const idsFromDb = await getPendingDeleteAssetIds();
-    if (idsFromDb.length === 0) return 0;
-    await MediaLibrary.deleteAssetsAsync(idsFromDb);
-    await deleteMetaRows(idsFromDb);
+  const confirmDeletions = useCallback(async (assetIds: string[]) => {
+    if (assetIds.length === 0) return 0;
+    await MediaLibrary.deleteAssetsAsync(assetIds);
+    await deleteMetaRows(assetIds);
     setMetaMap((prev) => {
       const next = new Map(prev);
-      for (const id of idsFromDb) next.delete(id);
+      for (const id of assetIds) next.delete(id);
       return next;
     });
-    setAssets((prev) => prev.filter((a) => !idsFromDb.includes(a.id)));
-    return idsFromDb.length;
+    setAssets((prev) => prev.filter((a) => !assetIds.includes(a.id)));
+    return assetIds.length;
   }, []);
 
   const assetsById = useMemo(() => new Map(assets.map((a) => [a.id, a])), [assets]);
@@ -122,7 +120,7 @@ export function PhotoLibraryProvider({ children }: { children: React.ReactNode }
       rate,
       rename,
       markForDelete,
-      pendingDeleteCount,
+      pendingDeleteAssets,
       confirmDeletions,
     }),
     [
@@ -135,7 +133,7 @@ export function PhotoLibraryProvider({ children }: { children: React.ReactNode }
       rate,
       rename,
       markForDelete,
-      pendingDeleteCount,
+      pendingDeleteAssets,
       confirmDeletions,
     ]
   );

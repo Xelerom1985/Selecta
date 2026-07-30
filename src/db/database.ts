@@ -61,13 +61,6 @@ export async function setPendingDelete(assetId: string, pendingDelete: boolean) 
   );
 }
 
-export async function getPendingDeleteAssetIds(): Promise<string[]> {
-  const rows = await db.getAllAsync<{ asset_id: string }>(
-    'SELECT asset_id FROM photos WHERE pending_delete = 1'
-  );
-  return rows.map((r) => r.asset_id);
-}
-
 export async function deleteMetaRows(assetIds: string[]) {
   if (assetIds.length === 0) return;
   const placeholders = assetIds.map(() => '?').join(',');

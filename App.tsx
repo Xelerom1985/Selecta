@@ -7,6 +7,7 @@ import type { RootStackParamList } from './src/types';
 import HomeScreen from './src/screens/HomeScreen';
 import FolderScreen from './src/screens/FolderScreen';
 import PhotoDetailScreen from './src/screens/PhotoDetailScreen';
+import ConfirmDeleteScreen from './src/screens/ConfirmDeleteScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -24,6 +25,11 @@ export default function App() {
             <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
             <Stack.Screen name="Folder" component={FolderScreen} />
             <Stack.Screen name="PhotoDetail" component={PhotoDetailScreen} options={{ title: '' }} />
+            <Stack.Screen
+              name="ConfirmDelete"
+              component={ConfirmDeleteScreen}
+              options={{ title: 'Revisar antes de eliminar' }}
+            />
           </Stack.Navigator>
         </NavigationContainer>
       </PhotoLibraryProvider>

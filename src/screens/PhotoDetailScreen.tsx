@@ -15,8 +15,8 @@ const SWIPE_THRESHOLD = 60;
 
 export default function PhotoDetailScreen({ route, navigation }: Props) {
   const { assetIds, index } = route.params;
-  const { assetsById, getMeta, rate, rename, markForDelete, pendingDeleteCount, confirmDeletions } =
-    usePhotoLibrary();
+  const { assetsById, getMeta, rate, rename, markForDelete, pendingDeleteAssets } = usePhotoLibrary();
+  const pendingDeleteCount = pendingDeleteAssets.length;
   const insets = useSafeAreaInsets();
   const assetId = assetIds[index];
   const asset = assetsById.get(assetId);
@@ -56,27 +56,8 @@ export default function PhotoDetailScreen({ route, navigation }: Props) {
       Alert.alert('Nada para eliminar', 'Todavía no marcaste ninguna foto con la cruz roja.');
       return;
     }
-    Alert.alert(
-      'Enviar a la papelera',
-      `Vas a enviar ${pendingDeleteCount} foto${pendingDeleteCount === 1 ? '' : 's'} a la papelera de tu galería. ¿Confirmás?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Enviar',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const count = await confirmDeletions();
-              Alert.alert('Listo', `${count} foto${count === 1 ? '' : 's'} enviada${count === 1 ? '' : 's'} a la papelera.`);
-              navigation.navigate('Home');
-            } catch (err: any) {
-              Alert.alert('No se pudo completar', err?.message ?? String(err));
-            }
-          },
-        },
-      ]
-    );
-  }, [pendingDeleteCount, confirmDeletions, navigation]);
+    navigation.navigate('ConfirmDelete');
+  }, [pendingDeleteCount, navigation]);
 
   useEffect(() => {
     navigation.setOptions({
